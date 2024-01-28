@@ -77,28 +77,64 @@ pub enum Token {
 }
 
 #[derive(Debug)]
-pub struct Lexer {
-    source: String,
+pub struct Lexer<'a> {
+    source: &'a str,
     index: usize,
     tokens: Vec<Token>
 }
 
-impl Lexer {
+impl<'a> Lexer<'a> {
     
-    pub fn new(source: String) -> Self {
+    pub fn new(source: &'a str) -> Self {
         Self {
             source,
             index: 0,
             tokens: Vec::new(),
         }
     }
-
+    
     pub fn tokenize(&mut self) -> CompResult<()> {
         Ok(())
     }
+
+    fn tokenize_identifier(&mut self) -> CompResult<()> {
+        // Preconditions
+        let next = self.peek_next_char().unwrap();
+        assert!(next.is_alphabetic());
+        
+        // Iterate until whitespace or end of file
+        let start = self.index;
+        while let Some(c) = self.eat_next_char() {
+            if c.is_whitespace() {
+                break;
+            }
+        }
+
+        let ident = &self.source[start..self.index];
+        let token = if let Some(keyword) = self.tokenize_keyword(ident) {
+            Token::Keyword(keyword)
+        } else {
+            Token::Identifier(ident.into())
+        };
+
+        self.tokens.push(token);
+
+        Ok(())
+    }
+
+    fn peek_next_char(&self) -> Option<char> {
+        self.source.chars().nth(self.index)
+    }
+
+    fn eat_next_char(&mut self) -> Option<char> {
+        let maybe_char = self.source.chars().nth(self.index);
+        self.index += 1;
+        maybe_char
+    }
     
-    fn tokenize_keyword(identifier: &str) -> Option<Keyword> {
+    fn tokenize_keyword(&self, identifier: &str) -> Option<Keyword> {
         let value = KEYWORD_MAP.get(identifier)?;
         Some(*value)
     }
+
 }

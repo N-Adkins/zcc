@@ -15,10 +15,10 @@ impl std::fmt::Display for ErrorCode {
 #[derive(Debug, Default)]
 pub struct CompError {
     pub code: ErrorCode,
-    pub message: Option<String>,
+    pub message: Option<&'static str>,
     pub line: Option<(String, usize)>, // actual line, line num
     pub highlight: Option<(usize, usize)>, // range
-    pub highlight_message: Option<String>,
+    pub highlight_message: Option<&'static str>,
 }
 
 impl std::fmt::Display for CompError {
