@@ -16,7 +16,7 @@ impl std::fmt::Display for ErrorCode {
 pub struct CompError {
     pub code: ErrorCode,
     pub message: Option<&'static str>,
-    pub line: Option<(String, usize)>, // actual line, line num
+    pub src: Option<(String, usize)>, // actual line, line num
     pub highlight: Option<(usize, usize)>, // range
     pub highlight_message: Option<&'static str>,
 }
@@ -29,16 +29,16 @@ impl std::fmt::Display for CompError {
         // of the message for the line number. This will
         // calculate the size of that.
         let mut space_count = 0;
-        if let Some((_, ref line_num)) = self.line {
+        if let Some((_, ref line_num)) = self.src {
             space_count = line_num.to_string().chars().count(); 
         }
 
         if let Some(ref message) = self.message {
             writeln!(f, "{:buffer$} | {}", "", message, buffer = space_count)?;
         }
-        if let Some((ref line, ref line_num)) = self.line {
+        if let Some((ref src, ref line_num)) = self.src {
             writeln!(f, "{:buffer$} |", "", buffer = space_count)?;
-            writeln!(f, "{} | {}", line_num, line)?;
+            writeln!(f, "{} | {}", line_num, src.split('\n').nth(line_num - 1).unwrap())?;
             if let Some((ref low, ref high)) = self.highlight {
                 let highlight = high - low;
                 writeln!(f, "{:buffer$} | {:low_buffer$}{:^>highlight_chars$}", "", "", "",

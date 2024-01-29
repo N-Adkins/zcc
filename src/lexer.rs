@@ -77,30 +77,92 @@ pub enum Token {
 }
 
 #[derive(Debug)]
-pub struct Lexer<'a> {
-    source: &'a str,
+pub struct Lexer {
+    source: String,
     index: usize,
     tokens: Vec<Token>
 }
 
-impl<'a> Lexer<'a> {
+impl<'a> Lexer {
     
     pub fn new(source: &'a str) -> Self {
         Self {
-            source,
+            source: String::from(source),
             index: 0,
             tokens: Vec::new(),
         }
     }
-    
+
     pub fn tokenize(&mut self) -> CompResult<()> {
+        self.phase_one();
+        Ok(())
+    }
+    
+    // Source character mapping and trigraph sequence
+    // mapping
+    fn phase_one(&mut self) {
+        self.replace_trigraphs();
+    }
+    
+    // Deleting newlines with preceding backslashes
+    fn phase_two(&mut self) {
+        self.replace_newline_slashes();
+    }
+    
+    // Preprocessing tokenizing
+    fn phase_three(&mut self) -> CompResult<()> {
+        Ok(())
+    }
+
+    fn replace_newline_slashes(&mut self) {
+        self.source = self.source.replace("\\\n", "");
+    }
+    
+    // This is so inefficient right now to be honest
+    fn replace_trigraphs(&mut self) {
+        self.source = self.source
+            .replace(r"??=", r"#")
+            .replace(r"??(", r"[")
+            .replace(r"??/", r"\\")
+            .replace(r"??)", r"]")
+            .replace(r"??'", r"^")
+            .replace(r"??<", r"{")
+            .replace(r"??!", r"|")
+            .replace(r"??>", r"}")
+            .replace(r"??-", r"~")
+    }
+    
+    fn tokenize_next(&mut self) -> CompResult<()> {
+        assert!(self.peek_next_char().is_some());
+        
+        loop {
+            match self.peek_next_char() {
+                Some(c) => {
+                    if c.is_whitespace() {
+                        _ = self.eat_next_char();
+                    } else {
+                        break;
+                    }
+                }
+                None => return Ok(())
+            }
+        }
+        
+        // Should always be Some after loop before this
+        let next = self.peek_next_char().unwrap();
+
+        if next.is_numeric() {
+             // Number
+        } else if self.is_identifier(next) {
+            self.tokenize_identifier()?;
+        }
+
         Ok(())
     }
 
     fn tokenize_identifier(&mut self) -> CompResult<()> {
-        // Preconditions
         let next = self.peek_next_char().unwrap();
-        assert!(next.is_alphabetic());
+        assert!(next.is_alphabetic() || next == '_');
         
         // Iterate until whitespace or end of file
         let start = self.index;
@@ -131,7 +193,11 @@ impl<'a> Lexer<'a> {
         self.index += 1;
         maybe_char
     }
-    
+
+    fn is_identifier(&self, c: char) -> bool {
+        c.is_alphabetic() || c == '_'
+    }
+
     fn tokenize_keyword(&self, identifier: &str) -> Option<Keyword> {
         let value = KEYWORD_MAP.get(identifier)?;
         Some(*value)
