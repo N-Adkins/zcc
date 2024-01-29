@@ -97,9 +97,9 @@ impl<'a> Lexer {
         let next = self.peek_next_char().expect("Precondition");
 
         if next == '\'' {
-            self.pp_tokenize_char_constant();
+            self.pp_tokenize_char_constant()?;
         } else if next == '\"' {
-            self.pp_tokenize_string_literal();
+            self.pp_tokenize_string_literal()?;
         } else if next.is_numeric() {
             self.pp_tokenize_number();
         } else if self.is_identifier(next) {
