@@ -2,12 +2,17 @@
 pub enum ErrorCode {
     #[default]
     None = 0,
+
+    UnterminatedCharConstant = 1,
+    UnterminatedStringLiteral = 2,
 }
 
 impl std::fmt::Display for ErrorCode {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match *self {
-            ErrorCode::None => write!(f, "No Error"),
+            Self::None => write!(f, "No Error"),
+            Self::UnterminatedCharConstant => write!(f, "Failed to find end of character constant"),
+            Self::UnterminatedStringLiteral => write!(f, "Failed to find end of string literal"),
         }
     }
 }
@@ -15,10 +20,10 @@ impl std::fmt::Display for ErrorCode {
 #[derive(Debug, Default)]
 pub struct CompError {
     pub code: ErrorCode,
-    pub message: Option<&'static str>,
+    pub message: Option<String>,
     pub src: Option<(String, usize)>,      // actual line, line num
     pub highlight: Option<(usize, usize)>, // range
-    pub highlight_message: Option<&'static str>,
+    pub highlight_message: Option<String>,
 }
 
 impl std::fmt::Display for CompError {
@@ -75,6 +80,48 @@ impl std::fmt::Display for CompError {
         }
         Ok(())
     }
+}
+
+#[derive(Debug, Default)]
+pub struct CompErrorBuilder {
+    error: CompError,
+}
+
+impl CompErrorBuilder {
+    
+    pub fn new() -> Self {
+        Default::default() 
+    }
+
+    pub fn code(mut self, code: ErrorCode) -> Self {
+        self.error.code = code;
+        self
+    }
+
+    pub fn message(mut self, msg: String) -> Self {
+        self.error.message = Some(msg);
+        self
+    }
+
+    pub fn source(mut self, src: String, line: usize) -> Self {
+        self.error.src = Some((src, line));
+        self
+    }
+
+    pub fn highlight(mut self, begin: usize, end: usize) -> Self {
+        self.error.highlight = Some((begin, end));
+        self
+    }
+
+    pub fn highlight_message(mut self, msg: String) -> Self {
+        self.error.message = Some(msg);
+        self
+    }
+
+    pub fn build(&self) -> Box<CompError> {
+        self.error.into()
+    }
+
 }
 
 pub type CompResult<T> = Result<T, Box<CompError>>;

@@ -93,56 +93,119 @@ impl<'a> Lexer {
             .replace(r"??-", r"~");
     }
 
-    fn tokenize_next(&mut self) -> CompResult<()> {
-        assert!(self.peek_next_char().is_some());
-
-        loop {
-            match self.peek_next_char() {
-                Some(c) => {
-                    if c.is_whitespace() {
-                        _ = self.eat_next_char();
-                    } else {
-                        break;
-                    }
-                }
-                None => return Ok(()),
-            }
-        }
-
-        // Should always be Some after loop before this
-        let next = self.peek_next_char().unwrap();
-
-        if next.is_numeric() {
-            // Number
+    fn pp_tokenize_next(&mut self) -> CompResult<()> {
+        let next = self.peek_next_char().expect("Precondition");
+        
+        if next == '\'' {
+            self.pp_tokenize_char_constant(); 
+        } else if next == '\"' {
+            self.pp_tokenize_string_literal();
+        } else if next.is_numeric() {
+            self.pp_tokenize_number();
         } else if self.is_identifier(next) {
-            self.tokenize_identifier()?;
+            self.pp_tokenize_identifier();
         }
 
         Ok(())
     }
 
-    fn tokenize_identifier(&mut self) -> CompResult<()> {
-        let next = self.peek_next_char().unwrap();
-        assert!(next.is_alphabetic() || next == '_');
+    fn pp_tokenize_char_constant(&mut self) -> CompResult<()> {
+        let begin = self.eat_next_char().expect("Precondition");
+        assert_eq!(begin, '\'');
+        
+        let literal = match self.eat_next_char() {
+            Some(c) => c,
+            None => return Err(CompErrorBuilder::new()
+                .code(ErrorCode::UnterminatedCharConstant)
+                .message("Expected character, found end of source".into())
+                .source(self.source.clone(), self.line)
+                .highlight(self.col, self.col)
+                .build()),
+        };
 
-        // Iterate until whitespace or end of file
+        match self.eat_next_char() {
+            Some('\'') => (),
+            Some(c) => return Err(CompErrorBuilder::new()
+                .code(ErrorCode::UnterminatedCharConstant)
+                .message(format!("Expected `\'`, found `{}`", c))
+                .source(self.source.clone(), self.line)
+                .highlight(self.col, self.col)
+                .build()),
+            None => return Err(CompErrorBuilder::new()
+                .code(ErrorCode::UnterminatedCharConstant)
+                .message("Expected `\'`, found end of source".into())
+                .source(self.source.clone(), self.line)
+                .highlight(self.col, self.col)
+                .build()),
+        }
+
+        self.pp_tokens.push(PreprocessToken::CharacterConstant(literal));
+        
+        Ok(())
+    }
+
+    fn pp_tokenize_string_literal(&mut self) -> CompResult<()> {
+        let begin = self.eat_next_char().expect("Precondition");
+        assert_eq!(begin, '\"');
+        
+        let start_line = self.line;
+        let start_col = self.col;
         let start = self.index;
-        while let Some(c) = self.eat_next_char() {
-            if c.is_whitespace() {
+        loop {
+            match self.eat_next_char() {
+            Some('\"') => break,
+            Some(_) => (),
+            None => return Err(CompErrorBuilder::new()
+                .code(ErrorCode::UnterminatedStringLiteral)
+                .message("Expected character, found end of source".into())
+                .source(self.source.clone(), start_line)
+                .highlight(start_col, start_col)
+                .highlight_message("Started here".into())
+                .build()),
+            };
+        }
+
+        let literal = &self.source[start..self.index];
+
+        self.pp_tokens.push(PreprocessToken::StringLiteral(String::from(literal)));
+        
+        Ok(())
+    }
+
+    fn pp_tokenize_number(&mut self) {
+        let start = self.index;
+        while let Some(c) = self.peek_next_char() {
+            if c.is_numeric() {
+                _ = self.eat_next_char();
+            } else {
                 break;
             }
         }
 
-        let ident = &self.source[start..self.index];
-        let token = if let Some(keyword) = self.tokenize_keyword(ident) {
-            Token::Keyword(keyword)
-        } else {
-            Token::Identifier(ident.into())
-        };
+        // TODO: Float literals
+        let num_raw = &self.source[start..self.index];
 
-        self.tokens.push(token);
+        let num = num_raw
+            .parse::<i64>()
+            .expect("Should only ever be a number");
 
-        Ok(())
+        self.pp_tokens
+            .push(PreprocessToken::Number(PreprocessNumber::Integer(num)));
+    }
+
+    fn pp_tokenize_identifier(&mut self) {
+        let start = self.index;
+        while let Some(c) = self.peek_next_char() {
+            if self.is_identifier(c) {
+                _ = self.eat_next_char();
+            } else {
+                break;
+            }
+        }
+
+        let ident_raw = &[start..self.index];
+
+        
     }
 
     fn peek_next_char(&self) -> Option<char> {
@@ -167,7 +230,7 @@ impl<'a> Lexer {
         c.is_alphabetic() || c == '_'
     }
 
-    fn tokenize_keyword(&self, identifier: &str) -> Option<Keyword> {
+    fn get_keyword(&self, identifier: &str) -> Option<Keyword> {
         let value = KEYWORD_MAP.get(identifier)?;
         Some(*value)
     }
