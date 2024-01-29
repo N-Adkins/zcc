@@ -10,14 +10,14 @@ pub enum ErrorCode {
 impl std::fmt::Display for ErrorCode {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match *self {
-            Self::None => write!(f, "No Error"),
-            Self::UnterminatedCharConstant => write!(f, "Failed to find end of character constant"),
+            Self::None => write!(f, "No error"),
+            Self::UnterminatedCharConstant => write!(f, "Failed to find end of a character constant"),
             Self::UnterminatedStringLiteral => write!(f, "Failed to find end of string literal"),
         }
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct CompError {
     pub code: ErrorCode,
     pub message: Option<String>,
@@ -113,12 +113,12 @@ impl CompErrorBuilder {
     }
 
     pub fn highlight_message(mut self, msg: String) -> Self {
-        self.error.message = Some(msg);
+        self.error.highlight_message = Some(msg);
         self
     }
 
     pub fn build(&self) -> Box<CompError> {
-        self.error.into()
+        Box::new(self.error.clone())
     }
 }
 

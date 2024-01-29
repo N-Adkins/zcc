@@ -13,4 +13,5 @@ fn main() {
         Ok(_) => (),
         Err(err) => print!("{}", err),
     }
+    println!("{:#?}", lexer);
 }

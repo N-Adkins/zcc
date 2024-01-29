@@ -71,6 +71,15 @@ impl<'a> Lexer {
 
     // Preprocessing tokenizing
     fn phase_three(&mut self) -> CompResult<()> {
+
+        while let Some(c) = self.peek_next_char() {
+            if c.is_whitespace() {
+                _ = self.eat_next_char();
+                continue;
+            };
+            self.pp_tokenize_next()?;
+        } 
+
         Ok(())
     }
 
@@ -94,7 +103,7 @@ impl<'a> Lexer {
     }
 
     fn pp_tokenize_next(&mut self) -> CompResult<()> {
-        let next = self.peek_next_char().expect("Precondition");
+        let next = self.peek_next_char().expect("Precondition"); 
 
         if next == '\'' {
             self.pp_tokenize_char_constant()?;
@@ -104,6 +113,8 @@ impl<'a> Lexer {
             self.pp_tokenize_number();
         } else if self.is_identifier(next) {
             self.pp_tokenize_identifier();
+        } else {
+            todo!("Need to implement operators etc");
         }
 
         Ok(())
@@ -152,11 +163,12 @@ impl<'a> Lexer {
     }
 
     fn pp_tokenize_string_literal(&mut self) -> CompResult<()> {
+        let start_line = self.line;
+        let start_col = self.col;
+
         let begin = self.eat_next_char().expect("Precondition");
         assert_eq!(begin, '\"');
 
-        let start_line = self.line;
-        let start_col = self.col;
         let start = self.index;
         loop {
             match self.eat_next_char() {
@@ -167,7 +179,7 @@ impl<'a> Lexer {
                         .code(ErrorCode::UnterminatedStringLiteral)
                         .message("Expected character, found end of source".into())
                         .source(self.source.clone(), start_line)
-                        .highlight(start_col, start_col)
+                        .highlight(start_col - 1, start_col)
                         .highlight_message("Started here".into())
                         .build())
                 }
@@ -213,7 +225,9 @@ impl<'a> Lexer {
             }
         }
 
-        let ident_raw = &[start..self.index];
+        let ident_raw = &self.source[start..self.index];
+
+        self.pp_tokens.push(PreprocessToken::Identifier(String::from(ident_raw)));
     }
 
     fn peek_next_char(&self) -> Option<char> {
