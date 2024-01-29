@@ -95,9 +95,9 @@ impl<'a> Lexer {
 
     fn pp_tokenize_next(&mut self) -> CompResult<()> {
         let next = self.peek_next_char().expect("Precondition");
-        
+
         if next == '\'' {
-            self.pp_tokenize_char_constant(); 
+            self.pp_tokenize_char_constant();
         } else if next == '\"' {
             self.pp_tokenize_string_literal();
         } else if next.is_numeric() {
@@ -112,63 +112,73 @@ impl<'a> Lexer {
     fn pp_tokenize_char_constant(&mut self) -> CompResult<()> {
         let begin = self.eat_next_char().expect("Precondition");
         assert_eq!(begin, '\'');
-        
+
         let literal = match self.eat_next_char() {
             Some(c) => c,
-            None => return Err(CompErrorBuilder::new()
-                .code(ErrorCode::UnterminatedCharConstant)
-                .message("Expected character, found end of source".into())
-                .source(self.source.clone(), self.line)
-                .highlight(self.col, self.col)
-                .build()),
+            None => {
+                return Err(CompErrorBuilder::new()
+                    .code(ErrorCode::UnterminatedCharConstant)
+                    .message("Expected character, found end of source".into())
+                    .source(self.source.clone(), self.line)
+                    .highlight(self.col, self.col)
+                    .build())
+            }
         };
 
         match self.eat_next_char() {
             Some('\'') => (),
-            Some(c) => return Err(CompErrorBuilder::new()
-                .code(ErrorCode::UnterminatedCharConstant)
-                .message(format!("Expected `\'`, found `{}`", c))
-                .source(self.source.clone(), self.line)
-                .highlight(self.col, self.col)
-                .build()),
-            None => return Err(CompErrorBuilder::new()
-                .code(ErrorCode::UnterminatedCharConstant)
-                .message("Expected `\'`, found end of source".into())
-                .source(self.source.clone(), self.line)
-                .highlight(self.col, self.col)
-                .build()),
+            Some(c) => {
+                return Err(CompErrorBuilder::new()
+                    .code(ErrorCode::UnterminatedCharConstant)
+                    .message(format!("Expected `\'`, found `{}`", c))
+                    .source(self.source.clone(), self.line)
+                    .highlight(self.col, self.col)
+                    .build())
+            }
+            None => {
+                return Err(CompErrorBuilder::new()
+                    .code(ErrorCode::UnterminatedCharConstant)
+                    .message("Expected `\'`, found end of source".into())
+                    .source(self.source.clone(), self.line)
+                    .highlight(self.col, self.col)
+                    .build())
+            }
         }
 
-        self.pp_tokens.push(PreprocessToken::CharacterConstant(literal));
-        
+        self.pp_tokens
+            .push(PreprocessToken::CharacterConstant(literal));
+
         Ok(())
     }
 
     fn pp_tokenize_string_literal(&mut self) -> CompResult<()> {
         let begin = self.eat_next_char().expect("Precondition");
         assert_eq!(begin, '\"');
-        
+
         let start_line = self.line;
         let start_col = self.col;
         let start = self.index;
         loop {
             match self.eat_next_char() {
-            Some('\"') => break,
-            Some(_) => (),
-            None => return Err(CompErrorBuilder::new()
-                .code(ErrorCode::UnterminatedStringLiteral)
-                .message("Expected character, found end of source".into())
-                .source(self.source.clone(), start_line)
-                .highlight(start_col, start_col)
-                .highlight_message("Started here".into())
-                .build()),
+                Some('\"') => break,
+                Some(_) => (),
+                None => {
+                    return Err(CompErrorBuilder::new()
+                        .code(ErrorCode::UnterminatedStringLiteral)
+                        .message("Expected character, found end of source".into())
+                        .source(self.source.clone(), start_line)
+                        .highlight(start_col, start_col)
+                        .highlight_message("Started here".into())
+                        .build())
+                }
             };
         }
 
         let literal = &self.source[start..self.index];
 
-        self.pp_tokens.push(PreprocessToken::StringLiteral(String::from(literal)));
-        
+        self.pp_tokens
+            .push(PreprocessToken::StringLiteral(String::from(literal)));
+
         Ok(())
     }
 
@@ -204,8 +214,6 @@ impl<'a> Lexer {
         }
 
         let ident_raw = &[start..self.index];
-
-        
     }
 
     fn peek_next_char(&self) -> Option<char> {

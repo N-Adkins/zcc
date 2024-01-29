@@ -88,9 +88,8 @@ pub struct CompErrorBuilder {
 }
 
 impl CompErrorBuilder {
-    
     pub fn new() -> Self {
-        Default::default() 
+        Default::default()
     }
 
     pub fn code(mut self, code: ErrorCode) -> Self {
@@ -121,7 +120,6 @@ impl CompErrorBuilder {
     pub fn build(&self) -> Box<CompError> {
         self.error.into()
     }
-
 }
 
 pub type CompResult<T> = Result<T, Box<CompError>>;
