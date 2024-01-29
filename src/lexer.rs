@@ -1,70 +1,5 @@
-use std::collections::HashMap;
-
-use lazy_static::lazy_static;
-
 use crate::comp_error::*;
-
-#[derive(Debug, Clone, Copy)]
-pub enum Keyword {
-    Auto, Break, Case, Char, Const, Continue, Default, Do,
-    Double, Else, Enum, Extern, Float, For, Goto, If,
-    Int, Long, Register, Return, Short, Signed, Sizeof, Static,
-    Struct, Switch, Typedef, Union, Unsigned, Void, Volatile, While,
-}
-
-lazy_static! {
-    static ref KEYWORD_MAP: HashMap<&'static str, Keyword> = HashMap::from([
-        ("auto", Keyword::Auto),
-        ("break", Keyword::Break),
-        ("case", Keyword::Case),
-        ("char", Keyword::Char),
-        ("const", Keyword::Const),
-        ("continue", Keyword::Continue),
-        ("default", Keyword::Default),
-        ("do", Keyword::Do),
-        ("double", Keyword::Double),
-        ("else", Keyword::Else),
-        ("enum", Keyword::Enum),
-        ("extern", Keyword::Extern),
-        ("float", Keyword::Float),
-        ("for", Keyword::For),
-        ("goto", Keyword::Goto),
-        ("if", Keyword::If),
-        ("int", Keyword::Int),
-        ("long", Keyword::Long),
-        ("register", Keyword::Register),
-        ("return", Keyword::Return),
-        ("short", Keyword::Short),
-        ("signed", Keyword::Signed),
-        ("sizeof", Keyword::Sizeof),
-        ("static", Keyword::Static),
-        ("struct", Keyword::Struct),
-        ("switch", Keyword::Switch),
-        ("typedef", Keyword::Typedef),
-        ("union", Keyword::Union),
-        ("unsigned", Keyword::Unsigned),
-        ("void", Keyword::Void),
-        ("volatile", Keyword::Volatile),
-        ("while", Keyword::While),
-    ]);
-}
-
-#[derive(Debug)]
-pub enum Constant {
-    Char(char),
-    Integer(i32),
-    Float(f32),
-}
-
-#[derive(Debug)]
-pub enum Operator {
-    
-}
-
-#[derive(Debug)]
-pub enum Punctuator {
-    
-}
+use crate::lang::*;
 
 #[derive(Debug)]
 pub enum Token {
@@ -77,10 +12,31 @@ pub enum Token {
 }
 
 #[derive(Debug)]
+pub enum PreprocessNumber {
+    Integer(i64),
+    Floating(f64),
+}
+
+#[derive(Debug)]
+pub enum PreprocessToken {
+    HeaderName(String),
+    Identifier(String),
+    Number(PreprocessNumber),
+    CharacterConstant(char),
+    StringLiteral(String),
+    Operator(Operator),
+    Punctuator(Punctuator),
+    Other(char),
+}
+
+#[derive(Debug)]
 pub struct Lexer {
     source: String,
+    line: usize,
+    col: usize,
     index: usize,
-    tokens: Vec<Token>
+    tokens: Vec<Token>,
+    pp_tokens: Vec<PreprocessToken>,
 }
 
 impl<'a> Lexer {
@@ -88,13 +44,18 @@ impl<'a> Lexer {
     pub fn new(source: &'a str) -> Self {
         Self {
             source: String::from(source),
+            line: 1,
+            col: 1,
             index: 0,
             tokens: Vec::new(),
+            pp_tokens: Vec::new(),
         }
     }
 
     pub fn tokenize(&mut self) -> CompResult<()> {
         self.phase_one();
+        self.phase_two();
+        self.phase_three()?;
         Ok(())
     }
     
@@ -118,18 +79,18 @@ impl<'a> Lexer {
         self.source = self.source.replace("\\\n", "");
     }
     
-    // This is so inefficient right now to be honest
+    // This is so inefficient to be honest
     fn replace_trigraphs(&mut self) {
         self.source = self.source
             .replace(r"??=", r"#")
             .replace(r"??(", r"[")
-            .replace(r"??/", r"\\")
+            .replace(r"??/", r"\") // this might be wrong
             .replace(r"??)", r"]")
             .replace(r"??'", r"^")
             .replace(r"??<", r"{")
             .replace(r"??!", r"|")
             .replace(r"??>", r"}")
-            .replace(r"??-", r"~")
+            .replace(r"??-", r"~");
     }
     
     fn tokenize_next(&mut self) -> CompResult<()> {
@@ -191,6 +152,14 @@ impl<'a> Lexer {
     fn eat_next_char(&mut self) -> Option<char> {
         let maybe_char = self.source.chars().nth(self.index);
         self.index += 1;
+        if let Some(c) = maybe_char {
+            if c == '\n' {
+                self.line += 1;
+                self.col = 0;
+            } else {
+                self.col += 1;
+            }
+        }
         maybe_char
     }
 
