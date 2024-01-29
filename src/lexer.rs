@@ -40,7 +40,6 @@ pub struct Lexer {
 }
 
 impl<'a> Lexer {
-    
     pub fn new(source: &'a str) -> Self {
         Self {
             source: String::from(source),
@@ -58,18 +57,18 @@ impl<'a> Lexer {
         self.phase_three()?;
         Ok(())
     }
-    
+
     // Source character mapping and trigraph sequence
     // mapping
     fn phase_one(&mut self) {
         self.replace_trigraphs();
     }
-    
+
     // Deleting newlines with preceding backslashes
     fn phase_two(&mut self) {
         self.replace_newline_slashes();
     }
-    
+
     // Preprocessing tokenizing
     fn phase_three(&mut self) -> CompResult<()> {
         Ok(())
@@ -78,10 +77,11 @@ impl<'a> Lexer {
     fn replace_newline_slashes(&mut self) {
         self.source = self.source.replace("\\\n", "");
     }
-    
+
     // This is so inefficient to be honest
     fn replace_trigraphs(&mut self) {
-        self.source = self.source
+        self.source = self
+            .source
             .replace(r"??=", r"#")
             .replace(r"??(", r"[")
             .replace(r"??/", r"\") // this might be wrong
@@ -92,10 +92,10 @@ impl<'a> Lexer {
             .replace(r"??>", r"}")
             .replace(r"??-", r"~");
     }
-    
+
     fn tokenize_next(&mut self) -> CompResult<()> {
         assert!(self.peek_next_char().is_some());
-        
+
         loop {
             match self.peek_next_char() {
                 Some(c) => {
@@ -105,15 +105,15 @@ impl<'a> Lexer {
                         break;
                     }
                 }
-                None => return Ok(())
+                None => return Ok(()),
             }
         }
-        
+
         // Should always be Some after loop before this
         let next = self.peek_next_char().unwrap();
 
         if next.is_numeric() {
-             // Number
+            // Number
         } else if self.is_identifier(next) {
             self.tokenize_identifier()?;
         }
@@ -124,7 +124,7 @@ impl<'a> Lexer {
     fn tokenize_identifier(&mut self) -> CompResult<()> {
         let next = self.peek_next_char().unwrap();
         assert!(next.is_alphabetic() || next == '_');
-        
+
         // Iterate until whitespace or end of file
         let start = self.index;
         while let Some(c) = self.eat_next_char() {
@@ -171,5 +171,4 @@ impl<'a> Lexer {
         let value = KEYWORD_MAP.get(identifier)?;
         Some(*value)
     }
-
 }

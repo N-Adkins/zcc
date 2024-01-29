@@ -4,10 +4,38 @@ use lazy_static::lazy_static;
 
 #[derive(Debug, Clone, Copy)]
 pub enum Keyword {
-    Auto, Break, Case, Char, Const, Continue, Default, Do,
-    Double, Else, Enum, Extern, Float, For, Goto, If,
-    Int, Long, Register, Return, Short, Signed, Sizeof, Static,
-    Struct, Switch, Typedef, Union, Unsigned, Void, Volatile, While,
+    Auto,
+    Break,
+    Case,
+    Char,
+    Const,
+    Continue,
+    Default,
+    Do,
+    Double,
+    Else,
+    Enum,
+    Extern,
+    Float,
+    For,
+    Goto,
+    If,
+    Int,
+    Long,
+    Register,
+    Return,
+    Short,
+    Signed,
+    Sizeof,
+    Static,
+    Struct,
+    Switch,
+    Typedef,
+    Union,
+    Unsigned,
+    Void,
+    Volatile,
+    While,
 }
 
 #[derive(Debug)]
@@ -20,11 +48,14 @@ pub enum Constant {
 
 #[derive(Debug)]
 pub enum Operator {
-    LBracket, RBracket,
-    LParen, RParen,
+    LBracket,
+    RBracket,
+    LParen,
+    RParen,
     Period,
     Arrow,
-    DoublePlus, DoubleMinus,
+    DoublePlus,
+    DoubleMinus,
     Ampersand,
     Asterisk,
     Plus,
@@ -66,9 +97,12 @@ pub enum Operator {
 
 #[derive(Debug)]
 pub enum Punctuator {
-    LBracket, RBracket,
-    LParen, RParen,
-    LCurly, RCurly,
+    LBracket,
+    RBracket,
+    LParen,
+    RParen,
+    LCurly,
+    RCurly,
     Asterisk,
     Comma,
     Colon,
@@ -113,7 +147,6 @@ lazy_static! {
         ("volatile", Keyword::Volatile),
         ("while", Keyword::While),
     ]);
-
     pub static ref OPERATOR_MAP: HashMap<&'static str, Operator> = HashMap::from([
         ("[", Operator::LBracket),
         ("]", Operator::RBracket),
