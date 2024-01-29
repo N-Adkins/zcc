@@ -121,6 +121,9 @@ impl<'a> Lexer {
     }
 
     fn pp_tokenize_char_constant(&mut self) -> CompResult<()> {
+        let start_line = self.line;
+        let start_col = self.col;
+
         let begin = self.eat_next_char().expect("Precondition");
         assert_eq!(begin, '\'');
 
@@ -130,28 +133,33 @@ impl<'a> Lexer {
                 return Err(CompErrorBuilder::new()
                     .code(ErrorCode::UnterminatedCharConstant)
                     .message("Expected character, found end of source".into())
-                    .source(self.source.clone(), self.line)
-                    .highlight(self.col, self.col)
+                    .source(self.source.clone(), start_line)
+                    .highlight(start_col - 1, start_col)
+                    .highlight_message("Started here".into())
                     .build())
             }
         };
-
+        
+        let next_line = self.line;
+        let next_col = self.col;
         match self.eat_next_char() {
             Some('\'') => (),
             Some(c) => {
                 return Err(CompErrorBuilder::new()
                     .code(ErrorCode::UnterminatedCharConstant)
                     .message(format!("Expected `\'`, found `{}`", c))
-                    .source(self.source.clone(), self.line)
-                    .highlight(self.col, self.col)
+                    .source(self.source.clone(), next_line)
+                    .highlight(start_col - 1, next_col)
+                    .highlight_message("Invalid termination".into())
                     .build())
             }
             None => {
                 return Err(CompErrorBuilder::new()
                     .code(ErrorCode::UnterminatedCharConstant)
                     .message("Expected `\'`, found end of source".into())
-                    .source(self.source.clone(), self.line)
-                    .highlight(self.col, self.col)
+                    .source(self.source.clone(), start_line)
+                    .highlight(start_col - 1, start_col)
+                    .highlight_message("Started here".into())
                     .build())
             }
         }
@@ -186,7 +194,7 @@ impl<'a> Lexer {
             };
         }
 
-        let literal = &self.source[start..self.index];
+        let literal = &self.source[start..(self.index - 1)];
 
         self.pp_tokens
             .push(PreprocessToken::StringLiteral(String::from(literal)));
