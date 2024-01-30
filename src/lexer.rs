@@ -71,14 +71,13 @@ impl<'a> Lexer {
 
     // Preprocessing tokenizing
     fn phase_three(&mut self) -> CompResult<()> {
-
         while let Some(c) = self.peek_next_char() {
             if c.is_whitespace() {
                 _ = self.eat_next_char();
                 continue;
             };
             self.pp_tokenize_next()?;
-        } 
+        }
 
         Ok(())
     }
@@ -103,7 +102,7 @@ impl<'a> Lexer {
     }
 
     fn pp_tokenize_next(&mut self) -> CompResult<()> {
-        let next = self.peek_next_char().expect("Precondition"); 
+        let next = self.peek_next_char().expect("Precondition");
 
         if next == '\'' {
             self.pp_tokenize_char_constant()?;
@@ -139,7 +138,7 @@ impl<'a> Lexer {
                     .build())
             }
         };
-        
+
         let next_line = self.line;
         let next_col = self.col;
         match self.eat_next_char() {
@@ -235,7 +234,8 @@ impl<'a> Lexer {
 
         let ident_raw = &self.source[start..self.index];
 
-        self.pp_tokens.push(PreprocessToken::Identifier(String::from(ident_raw)));
+        self.pp_tokens
+            .push(PreprocessToken::Identifier(String::from(ident_raw)));
     }
 
     fn peek_next_char(&self) -> Option<char> {

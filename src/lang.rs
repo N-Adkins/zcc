@@ -47,6 +47,12 @@ pub enum Constant {
 }
 
 #[derive(Debug)]
+pub enum PreprocessNumber {
+    Integer(i64),
+    Floating(f64),
+}
+
+#[derive(Debug)]
 pub enum Operator {
     LBracket,
     RBracket,

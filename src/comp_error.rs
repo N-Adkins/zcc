@@ -11,7 +11,9 @@ impl std::fmt::Display for ErrorCode {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match *self {
             Self::None => write!(f, "No error"),
-            Self::UnterminatedCharConstant => write!(f, "Failed to find end of a character constant"),
+            Self::UnterminatedCharConstant => {
+                write!(f, "Failed to find end of a character constant")
+            }
             Self::UnterminatedStringLiteral => write!(f, "Failed to find end of string literal"),
         }
     }
