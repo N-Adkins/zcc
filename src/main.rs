@@ -14,5 +14,5 @@ fn main() {
         Err(err) => print!("{}", err),
     }
 
-    //println!("{:#?}", lexer);
+    println!("{:#?}", lexer);
 }

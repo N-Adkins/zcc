@@ -47,12 +47,6 @@ pub enum Constant {
 }
 
 #[derive(Debug)]
-pub enum PreprocessNumber {
-    Integer(i64),
-    Floating(f64),
-}
-
-#[derive(Debug)]
 pub enum Operator {
     LBracket,
     RBracket,
@@ -200,4 +194,21 @@ lazy_static! {
         ("#", Operator::Pound),
         ("##", Operator::DoublePound),
     ]);
+
+    pub static ref PUNCTUATOR_MAP: HashMap<&'static str, Punctuator> = HashMap::from([
+        ("[", Punctuator::LBracket),
+        ("]", Punctuator::RBracket),
+        ("(", Punctuator::LParen),
+        (")", Punctuator::RParen),
+        ("{", Punctuator::LCurly),
+        ("}", Punctuator::RCurly),
+        ("*", Punctuator::Asterisk),
+        (",", Punctuator::Comma),
+        (":", Punctuator::Colon),
+        ("=", Punctuator::Equals),
+        (";", Punctuator::Semicolon),
+        ("...", Punctuator::TripleDot),
+        ("#", Punctuator::Pound),
+    ]);
+
 }

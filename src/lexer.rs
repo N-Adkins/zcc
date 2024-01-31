@@ -17,16 +17,23 @@ pub enum PreprocessNumber {
     Floating(f64),
 }
 
+#[derive(Debug, Clone, Copy)]
+pub struct PreprocessMetadata {
+    pub line: usize,
+    pub col: usize,
+    pub index: usize,
+}
+
 #[derive(Debug)]
 pub enum PreprocessToken {
-    HeaderName(String),
-    Identifier(String),
-    Number(PreprocessNumber),
-    CharacterConstant(char),
-    StringLiteral(String),
-    Operator(Operator),
-    Punctuator(Punctuator),
-    Other(char),
+    HeaderName(String, PreprocessMetadata),
+    Identifier(String, PreprocessMetadata),
+    Number(String, PreprocessMetadata),
+    CharacterConstant(char, PreprocessMetadata),
+    StringLiteral(String, PreprocessMetadata),
+    Operator(String, PreprocessMetadata),
+    Punctuator(String, PreprocessMetadata),
+    Other(char, PreprocessMetadata),
 }
 
 #[derive(Debug)]
@@ -113,13 +120,14 @@ impl<'a> Lexer {
         } else if self.is_identifier(next) {
             self.pp_tokenize_identifier();
         } else {
-            todo!("Need to implement operators etc");
+            self.pp_tokenize_specials();
         }
 
         Ok(())
     }
 
     fn pp_tokenize_char_constant(&mut self) -> CompResult<()> {
+        let start_index = self.index;
         let start_line = self.line;
         let start_col = self.col;
 
@@ -164,12 +172,17 @@ impl<'a> Lexer {
         }
 
         self.pp_tokens
-            .push(PreprocessToken::CharacterConstant(literal));
+            .push(PreprocessToken::CharacterConstant(literal, PreprocessMetadata {
+                index: start_index,
+                col: start_col,
+                line: start_line,
+            }));
 
         Ok(())
     }
 
     fn pp_tokenize_string_literal(&mut self) -> CompResult<()> {
+        let start_index = self.index;
         let start_line = self.line;
         let start_col = self.col;
 
@@ -196,13 +209,20 @@ impl<'a> Lexer {
         let literal = &self.source[start..(self.index - 1)];
 
         self.pp_tokens
-            .push(PreprocessToken::StringLiteral(String::from(literal)));
+            .push(PreprocessToken::StringLiteral(String::from(literal), PreprocessMetadata {
+                index: start_index,
+                col: start_col,
+                line: start_line,
+            }));
 
         Ok(())
     }
 
     fn pp_tokenize_number(&mut self) {
-        let start = self.index;
+        let start_index = self.index;
+        let start_line = self.line;
+        let start_col = self.col;
+
         while let Some(c) = self.peek_next_char() {
             if c.is_numeric() {
                 _ = self.eat_next_char();
@@ -212,18 +232,27 @@ impl<'a> Lexer {
         }
 
         // TODO: Float literals
-        let num_raw = &self.source[start..self.index];
-
+        let num_raw = &self.source[start_index..self.index];
+        
+        /*
         let num = num_raw
             .parse::<i64>()
             .expect("Should only ever be a number");
+        */
 
         self.pp_tokens
-            .push(PreprocessToken::Number(PreprocessNumber::Integer(num)));
+            .push(PreprocessToken::Number(String::from(num_raw), PreprocessMetadata {
+                index: start_index,
+                line: start_line,
+                col: start_col,
+            }));
     }
 
     fn pp_tokenize_identifier(&mut self) {
-        let start = self.index;
+        let start_index = self.index;
+        let start_col = self.col;
+        let start_line = self.line;
+
         while let Some(c) = self.peek_next_char() {
             if self.is_identifier(c) {
                 _ = self.eat_next_char();
@@ -232,14 +261,63 @@ impl<'a> Lexer {
             }
         }
 
-        let ident_raw = &self.source[start..self.index];
+        let ident_raw = &self.source[start_index..self.index];
 
         self.pp_tokens
-            .push(PreprocessToken::Identifier(String::from(ident_raw)));
+            .push(PreprocessToken::Identifier(String::from(ident_raw), PreprocessMetadata {
+                index: start_index,
+                col: start_col,
+                line: start_line,
+            }));
+    }
+
+    fn pp_tokenize_specials(&mut self) {
+        let first = self.peek_next_char().expect("Precondition");
+        let highest: usize = if self.peek_offset_char(2).is_some() {
+            2
+        } else if self.peek_offset_char(1).is_some() {
+            1
+        } else {
+            0
+        };
+
+        let metadata = PreprocessMetadata {
+            index: self.index,
+            line: self.line,
+            col: self.col,
+        };
+        
+        if first == '#' && self.col == 1 {
+            let raw = &self.source[self.index..(self.index + 1)];
+            self.pp_tokens.push(PreprocessToken::Punctuator(raw.into(), metadata));
+            self.eat_chars(1);
+            return ()
+        };
+
+        // This is badly optimized
+        for i in (0..=highest).rev() { 
+            let slice = &self.source[self.index..(self.index + i)];
+            println!("{}", slice);
+            if OPERATOR_MAP.get(slice).is_some() {
+                self.pp_tokens.push(PreprocessToken::Operator(slice.into(), metadata));
+                self.eat_chars(i);
+                return ()
+            } else if PUNCTUATOR_MAP.get(slice).is_some() {
+                self.pp_tokens.push(PreprocessToken::Punctuator(slice.into(), metadata));
+                self.eat_chars(i);
+                return ()
+            }
+        }
+
+        panic!("Encountered unhandled character `{}`", first);
     }
 
     fn peek_next_char(&self) -> Option<char> {
         self.source.chars().nth(self.index)
+    }
+
+    fn peek_offset_char(&self, index: usize) -> Option<char> {
+        self.source.chars().nth(self.index + index)
     }
 
     fn eat_next_char(&mut self) -> Option<char> {
@@ -248,12 +326,18 @@ impl<'a> Lexer {
         if let Some(c) = maybe_char {
             if c == '\n' {
                 self.line += 1;
-                self.col = 0;
+                self.col = 1;
             } else {
                 self.col += 1;
             }
         }
         maybe_char
+    }
+
+    fn eat_chars(&mut self, amount: usize) {
+        for _ in 0..amount {
+            self.eat_next_char();
+        }
     }
 
     fn is_identifier(&self, c: char) -> bool {
