@@ -5,6 +5,7 @@ pub enum ErrorCode {
 
     UnterminatedCharConstant = 1,
     UnterminatedStringLiteral = 2,
+    UnterminatedHeaderName = 3,
 }
 
 impl std::fmt::Display for ErrorCode {
@@ -15,6 +16,7 @@ impl std::fmt::Display for ErrorCode {
                 write!(f, "Failed to find end of a character constant")
             }
             Self::UnterminatedStringLiteral => write!(f, "Failed to find end of string literal"),
+            Self::UnterminatedHeaderName => write!(f, "Failed to find end of header name"),
         }
     }
 }

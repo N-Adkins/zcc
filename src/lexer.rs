@@ -24,9 +24,15 @@ pub struct PreprocessMetadata {
     pub index: usize,
 }
 
+#[derive(Debug, PartialEq, Eq)]
+pub enum HeaderNameType {
+    Included,
+    Local,
+}
+
 #[derive(Debug)]
 pub enum PreprocessToken {
-    HeaderName(String, PreprocessMetadata),
+    HeaderName(String, HeaderNameType, PreprocessMetadata),
     Identifier(String, PreprocessMetadata),
     Number(String, PreprocessMetadata),
     CharacterConstant(char, PreprocessMetadata),
@@ -79,7 +85,19 @@ impl<'a> Lexer {
     // Preprocessing tokenizing
     fn phase_three(&mut self) -> CompResult<()> {
         while let Some(c) = self.peek_next_char() {
-            if c.is_whitespace() {
+            if c == '\n' {
+                let token = PreprocessToken::Other(
+                    c,
+                    PreprocessMetadata {
+                        index: self.index,
+                        col: self.col,
+                        line: self.line,
+                    },
+                );
+                self.pp_tokens.push(token);
+                _ = self.eat_next_char();
+                continue;
+            } else if c.is_whitespace() {
                 _ = self.eat_next_char();
                 continue;
             };
@@ -111,6 +129,19 @@ impl<'a> Lexer {
     fn pp_tokenize_next(&mut self) -> CompResult<()> {
         let next = self.peek_next_char().expect("Precondition");
 
+        if next == '\"' || next == '<' && self.pp_tokens.len() >= 2 {
+            if let Some(PreprocessToken::Identifier(ident, _)) = self.pp_tokens.last() {
+                if let Some(PreprocessToken::Punctuator(hash, _)) =
+                    self.pp_tokens.iter().nth(self.pp_tokens.len() - 2)
+                {
+                    if ident == "include" && hash == "#" {
+                        self.pp_tokenize_header_name()?;
+                        return Ok(());
+                    }
+                }
+            }
+        }
+
         if next == '\'' {
             self.pp_tokenize_char_constant()?;
         } else if next == '\"' {
@@ -122,6 +153,61 @@ impl<'a> Lexer {
         } else {
             self.pp_tokenize_specials();
         }
+
+        Ok(())
+    }
+
+    fn pp_tokenize_header_name(&mut self) -> CompResult<()> {
+        let start_index = self.index;
+        let start_line = self.line;
+        let start_col = self.col;
+
+        let begin = self.eat_next_char().expect("Precondition");
+        assert!(begin == '\"' || begin == '<');
+
+        let header_type = if begin == '\"' {
+            HeaderNameType::Local
+        } else {
+            HeaderNameType::Included
+        };
+
+        let start = self.index;
+        loop {
+            match self.eat_next_char() {
+                Some(c) => {
+                    if (header_type == HeaderNameType::Local && c == '\"')
+                        || (header_type == HeaderNameType::Included && c == '>')
+                    {
+                        break;
+                    }
+                }
+                None => {
+                    let expected = match header_type {
+                        HeaderNameType::Local => '\"',
+                        HeaderNameType::Included => '>',
+                    };
+                    return Err(CompErrorBuilder::new()
+                        .code(ErrorCode::UnterminatedHeaderName)
+                        .message(format!("Expected `{}`, found end of source", expected))
+                        .source(self.source.clone(), start_line)
+                        .highlight(start_col - 1, start_col)
+                        .highlight_message("Started here".into())
+                        .build());
+                }
+            };
+        }
+
+        let literal = &self.source[start..(self.index - 1)];
+
+        self.pp_tokens.push(PreprocessToken::HeaderName(
+            String::from(literal),
+            header_type,
+            PreprocessMetadata {
+                index: start_index,
+                col: start_col,
+                line: start_line,
+            },
+        ));
 
         Ok(())
     }
@@ -171,12 +257,14 @@ impl<'a> Lexer {
             }
         }
 
-        self.pp_tokens
-            .push(PreprocessToken::CharacterConstant(literal, PreprocessMetadata {
+        self.pp_tokens.push(PreprocessToken::CharacterConstant(
+            literal,
+            PreprocessMetadata {
                 index: start_index,
                 col: start_col,
                 line: start_line,
-            }));
+            },
+        ));
 
         Ok(())
     }
@@ -208,12 +296,14 @@ impl<'a> Lexer {
 
         let literal = &self.source[start..(self.index - 1)];
 
-        self.pp_tokens
-            .push(PreprocessToken::StringLiteral(String::from(literal), PreprocessMetadata {
+        self.pp_tokens.push(PreprocessToken::StringLiteral(
+            String::from(literal),
+            PreprocessMetadata {
                 index: start_index,
                 col: start_col,
                 line: start_line,
-            }));
+            },
+        ));
 
         Ok(())
     }
@@ -233,19 +323,21 @@ impl<'a> Lexer {
 
         // TODO: Float literals
         let num_raw = &self.source[start_index..self.index];
-        
+
         /*
         let num = num_raw
             .parse::<i64>()
             .expect("Should only ever be a number");
         */
 
-        self.pp_tokens
-            .push(PreprocessToken::Number(String::from(num_raw), PreprocessMetadata {
+        self.pp_tokens.push(PreprocessToken::Number(
+            String::from(num_raw),
+            PreprocessMetadata {
                 index: start_index,
                 line: start_line,
                 col: start_col,
-            }));
+            },
+        ));
     }
 
     fn pp_tokenize_identifier(&mut self) {
@@ -263,12 +355,14 @@ impl<'a> Lexer {
 
         let ident_raw = &self.source[start_index..self.index];
 
-        self.pp_tokens
-            .push(PreprocessToken::Identifier(String::from(ident_raw), PreprocessMetadata {
+        self.pp_tokens.push(PreprocessToken::Identifier(
+            String::from(ident_raw),
+            PreprocessMetadata {
                 index: start_index,
                 col: start_col,
                 line: start_line,
-            }));
+            },
+        ));
     }
 
     fn pp_tokenize_specials(&mut self) {
@@ -286,30 +380,34 @@ impl<'a> Lexer {
             line: self.line,
             col: self.col,
         };
-        
+
         if first == '#' && self.col == 1 {
             let raw = &self.source[self.index..(self.index + 1)];
-            self.pp_tokens.push(PreprocessToken::Punctuator(raw.into(), metadata));
+            self.pp_tokens
+                .push(PreprocessToken::Punctuator(raw.into(), metadata));
             self.eat_chars(1);
-            return ()
+            return ();
         };
 
         // This is badly optimized
-        for i in (0..=highest).rev() { 
+        for i in (0..=highest).rev() {
             let slice = &self.source[self.index..(self.index + i)];
             println!("{}", slice);
             if OPERATOR_MAP.get(slice).is_some() {
-                self.pp_tokens.push(PreprocessToken::Operator(slice.into(), metadata));
+                self.pp_tokens
+                    .push(PreprocessToken::Operator(slice.into(), metadata));
                 self.eat_chars(i);
-                return ()
+                return ();
             } else if PUNCTUATOR_MAP.get(slice).is_some() {
-                self.pp_tokens.push(PreprocessToken::Punctuator(slice.into(), metadata));
+                self.pp_tokens
+                    .push(PreprocessToken::Punctuator(slice.into(), metadata));
                 self.eat_chars(i);
-                return ()
+                return ();
             }
         }
 
-        panic!("Encountered unhandled character `{}`", first);
+        self.pp_tokens.push(PreprocessToken::Other(first, metadata));
+        self.eat_next_char();
     }
 
     fn peek_next_char(&self) -> Option<char> {

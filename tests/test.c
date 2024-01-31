@@ -1,3 +1,3 @@
-"hello" 'n'  testing 123712
+test #include <test.h>
 
-#define test(x, y) x##y
+#include "test.h"

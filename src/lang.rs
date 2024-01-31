@@ -194,7 +194,6 @@ lazy_static! {
         ("#", Operator::Pound),
         ("##", Operator::DoublePound),
     ]);
-
     pub static ref PUNCTUATOR_MAP: HashMap<&'static str, Punctuator> = HashMap::from([
         ("[", Punctuator::LBracket),
         ("]", Punctuator::RBracket),
@@ -210,5 +209,4 @@ lazy_static! {
         ("...", Punctuator::TripleDot),
         ("#", Punctuator::Pound),
     ]);
-
 }
