@@ -392,7 +392,6 @@ impl<'a> Lexer {
         // This is badly optimized
         for i in (0..=highest).rev() {
             let slice = &self.source[self.index..(self.index + i)];
-            println!("{}", slice);
             if OPERATOR_MAP.get(slice).is_some() {
                 self.pp_tokens
                     .push(PreprocessToken::Operator(slice.into(), metadata));
