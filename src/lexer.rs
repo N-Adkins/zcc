@@ -132,7 +132,7 @@ impl<'a> Lexer {
         if next == '\"' || next == '<' && self.pp_tokens.len() >= 2 {
             if let Some(PreprocessToken::Identifier(ident, _)) = self.pp_tokens.last() {
                 if let Some(PreprocessToken::Punctuator(hash, _)) =
-                    self.pp_tokens.iter().nth(self.pp_tokens.len() - 2)
+                    self.pp_tokens.get(self.pp_tokens.len() - 2)
                 {
                     if ident == "include" && hash == "#" {
                         self.pp_tokenize_header_name()?;
@@ -386,7 +386,7 @@ impl<'a> Lexer {
             self.pp_tokens
                 .push(PreprocessToken::Punctuator(raw.into(), metadata));
             self.eat_chars(1);
-            return ();
+            return;
         };
 
         // This is badly optimized
@@ -396,12 +396,12 @@ impl<'a> Lexer {
                 self.pp_tokens
                     .push(PreprocessToken::Operator(slice.into(), metadata));
                 self.eat_chars(i);
-                return ();
+                return;
             } else if PUNCTUATOR_MAP.get(slice).is_some() {
                 self.pp_tokens
                     .push(PreprocessToken::Punctuator(slice.into(), metadata));
                 self.eat_chars(i);
-                return ();
+                return;
             }
         }
 
